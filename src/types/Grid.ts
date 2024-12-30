@@ -25,6 +25,26 @@ export const CharDirectionMap: Record<string, Direction> = {
 export const DirectionsToChars = Object.fromEntries(
     Object.entries(CharDirectionMap).map(([key, value]) => [value, key]),
 ) as Record<Direction, string>;
+export const ClockwiseRotation: Record<Direction, Direction> = {
+    up: 'right',
+    right: 'down',
+    down: 'left',
+    left: 'up',
+    upLeft: 'upRight',
+    upRight: 'downRight',
+    downRight: 'downLeft',
+    downLeft: 'upLeft',
+};
+export const CounterClockwiseRotation: Record<Direction, Direction> = {
+    up: 'left',
+    left: 'down',
+    down: 'right',
+    right: 'up',
+    upLeft: 'downLeft',
+    downLeft: 'downRight',
+    downRight: 'upRight',
+    upRight: 'upLeft',
+};
 
 export class Grid<T> {
     private readonly grid: (T | undefined)[][] = [];
