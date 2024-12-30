@@ -8,6 +8,7 @@ import {
     puzzle6,
     puzzle7,
     puzzle8,
+    puzzle9,
 } from '~/puzzles';
 import { Timer } from '~/util/Timer';
 
@@ -21,7 +22,8 @@ async function start() {
     // await puzzle5.run();
     // await puzzle6.run();
     // await puzzle7.run();
-    await puzzle8.run({
+    // await puzzle8.run();
+    await puzzle9.run({
         example: true,
         mainProblem: true,
     });
