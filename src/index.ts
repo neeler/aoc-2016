@@ -1,5 +1,5 @@
 import kleur from 'kleur';
-import { puzzle1, puzzle2, puzzle3 } from '~/puzzles';
+import { puzzle1, puzzle2, puzzle3, puzzle4 } from '~/puzzles';
 import { Timer } from '~/util/Timer';
 
 async function start() {
@@ -7,7 +7,8 @@ async function start() {
 
     // await puzzle1.run();
     // await puzzle2.run();
-    await puzzle3.run({
+    // await puzzle3.run();
+    await puzzle4.run({
         example: true,
         mainProblem: true,
     });
