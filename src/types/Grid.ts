@@ -271,12 +271,10 @@ export class Grid<T> {
         return filtered;
     }
 
-    find(
-        fn: (data: T | undefined, row: number, col: number) => any,
-    ): T | undefined {
+    find(fn: (data: T, row: number, col: number) => any): T | undefined {
         for (const [iRow, row] of this.grid.entries()) {
             for (const [iCol, node] of row.entries()) {
-                if (fn(node, iRow, iCol)) {
+                if (node && fn(node, iRow, iCol)) {
                     return node;
                 }
             }
