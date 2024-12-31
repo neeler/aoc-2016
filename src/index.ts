@@ -15,6 +15,7 @@ import {
     puzzle13,
     puzzle14,
     puzzle15,
+    puzzle16,
 } from '~/puzzles';
 import { Timer } from '~/util/Timer';
 
@@ -35,10 +36,8 @@ async function start() {
     // await puzzle12.run();
     // await puzzle13.run();
     // await puzzle14.run();
-    await puzzle15.run({
-        example: true,
-        mainProblem: true,
-    });
+    // await puzzle15.run();
+    await puzzle16.run();
 
     console.log(kleur.cyan(`All puzzles ran in ${timer.time}.`));
 }
