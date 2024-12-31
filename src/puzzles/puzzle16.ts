@@ -5,41 +5,57 @@ export const puzzle16 = new Puzzle({
     day: 16,
     parseInput: (fileData, { example }) => {
         return {
-            data: splitFilter(fileData, '').map((c) => c === '1'),
+            seed: splitFilter(fileData, '').map((c) => c === '1'),
             isExample: example,
         };
     },
-    part1: ({ data, isExample }) => {
+    part1: ({ seed, isExample }) => {
         const length = isExample ? 20 : 272;
-        return print(calculateChecksum(generateData(data, length)));
+        let data = seed;
+        while (data.length < length) {
+            data = generateData(data);
+        }
+        return print(checksum(data.slice(0, length)));
     },
-    part2: ({ data, isExample }) => {
+    part2: ({ seed, isExample }) => {
         const length = isExample ? 20 : 35651584;
-        return print(calculateChecksum(generateData(data, length)));
+        let data = seed;
+        while (data.length < length) {
+            data = generateData(data);
+        }
+        return print(checksum(data.slice(0, length)));
     },
 });
 
-function generateData(data: boolean[], discLength: number) {
+function generateData(data: boolean[]) {
     const a = data;
-    const b = a.toReversed().map((x) => !x);
-    const nextData = [...a, false, ...b];
-    if (nextData.length < discLength) {
-        return generateData(nextData, discLength);
-    }
-    return nextData.slice(0, discLength);
+    return a.concat(
+        [false],
+        a.toReversed().map((x) => !x),
+    );
 }
 
-function calculateChecksum(data: boolean[]) {
-    const nextData: boolean[] = [];
-    for (let i = 0; i < data.length; i += 2) {
-        nextData.push(data[i] === data[i + 1]);
+function checksum(data: boolean[]) {
+    let nIterations = 1;
+    let nBits = 2;
+    while ((data.length / 2 ** nIterations) % 2 === 0) {
+        nIterations++;
+        nBits *= 2;
     }
-    if (nextData.length % 2 === 0) {
-        return calculateChecksum(nextData);
+    const nextData: boolean[] = [];
+    for (let i = 0; i < data.length; i += nBits) {
+        const maxBit = i + nBits;
+        let nTrue = 0;
+        for (let j = i; j < maxBit; j++) {
+            if (data[j]) {
+                nTrue++;
+            }
+        }
+        nextData.push(nTrue % 2 === 0);
     }
     return nextData;
 }
 
 function print(data: boolean[]) {
-    return data.map((x) => (x ? '1' : '0')).join('');
+    return data.map(Number).join('');
 }
