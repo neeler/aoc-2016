@@ -99,14 +99,17 @@ export class Maze extends Grid<MazeNode> {
     }
 
     score({
-        start,
-        end,
+        start: startCoord,
+        end: endCoord,
         resetAfter = true,
     }: {
-        start: MazeNode;
-        end: MazeNode;
+        start: GridCoordinate;
+        end: GridCoordinate;
         resetAfter?: boolean;
     }) {
+        const start = this.get(startCoord)!;
+        const end = this.get(endCoord)!;
+
         const queue = new Queue<MazeNode>();
         start.bestScore = 0;
         queue.add(start);
