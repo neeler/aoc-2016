@@ -10,7 +10,6 @@ export const puzzle14 = new Puzzle({
     part1: (salt) => {
         return getKey(salt, 64);
     },
-    skipPart1: true,
     part2: (salt) => {
         return getKey(salt, 64, 2017);
     },
