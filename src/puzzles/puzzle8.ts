@@ -51,7 +51,6 @@ export const puzzle8 = new Puzzle({
     },
     part2: ({ instructions, grid }) => {
         runInstructions(grid, instructions);
-        grid.draw();
         const characters: string[][] = [];
         for (let col = 0; col < grid.width; col += 5) {
             const pixels: string[][] = [];
