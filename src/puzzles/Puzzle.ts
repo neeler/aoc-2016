@@ -17,10 +17,10 @@ type FileProcessor<TData> = (
 interface PuzzleConfig<TData> {
     day: number;
     parseInput: FileProcessor<TData>;
-    example1?: (data: TData) => any;
-    part1: (data: TData) => any;
-    example2?: (data: TData) => any;
-    part2: (data: TData) => any;
+    example1?: (data: TData, options: FileProcessorOptions) => any;
+    part1: (data: TData, options: FileProcessorOptions) => any;
+    example2?: (data: TData, options: FileProcessorOptions) => any;
+    part2: (data: TData, options: FileProcessorOptions) => any;
     skipExample?: boolean;
     skipPart1?: boolean;
     skipPart2?: boolean;
@@ -72,7 +72,10 @@ AoC ${year} Day ${this.config.day}
             if (exampleData) {
                 const result = await (
                     this.config.example1 ?? this.config.part1
-                )(exampleData);
+                )(exampleData, {
+                    example: true,
+                    part: 1,
+                });
 
                 printResult({
                     part: 1,
@@ -87,7 +90,10 @@ AoC ${year} Day ${this.config.day}
                 ? this.getPuzzleData({ part: 1 })
                 : undefined;
             if (puzzleData) {
-                const result = await this.config.part1(puzzleData);
+                const result = await this.config.part1(puzzleData, {
+                    puzzle: true,
+                    part: 1,
+                });
 
                 printResult({
                     part: 1,
@@ -106,7 +112,10 @@ AoC ${year} Day ${this.config.day}
             if (exampleData) {
                 const result = await (
                     this.config.example2 ?? this.config.part2
-                )(exampleData);
+                )(exampleData, {
+                    example: true,
+                    part: 2,
+                });
 
                 printResult({
                     part: 2,
@@ -121,7 +130,10 @@ AoC ${year} Day ${this.config.day}
                 ? this.getPuzzleData({ part: 2 })
                 : undefined;
             if (puzzleData) {
-                const result = await this.config.part2(puzzleData);
+                const result = await this.config.part2(puzzleData, {
+                    puzzle: true,
+                    part: 2,
+                });
 
                 printResult({
                     part: 2,
