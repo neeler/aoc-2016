@@ -1,5 +1,14 @@
 # AoC 2016
 
+### Completed!
+
+All puzzles together run in ~3m cumulatively on my M2 MacBook Air.
+The slow ones are:
+- #5: p1 ~6s, p2 ~16s. (brute force md5 hashing)
+- #9: p2 ~18s. (recursive decompression)
+- #11: p2 ~1.8m. Will try to optimize this one later.
+- #14: p2 ~25s. (brute force md5 hashing)
+
 ## Initial Setup
 
 Just cloned the repo? Follow these instructions to get set up.
