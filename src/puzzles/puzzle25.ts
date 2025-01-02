@@ -1,6 +1,5 @@
 import { Puzzle } from './Puzzle';
 import { splitFilter } from '~/util/parsing';
-import { range } from '~/util/range';
 
 type Register = 'a' | 'b' | 'c' | 'd';
 type Operation = 'cpy' | 'inc' | 'dec' | 'jnz' | 'tgl' | 'out';
