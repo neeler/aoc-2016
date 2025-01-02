@@ -46,22 +46,25 @@ class Computer {
             }
             const { op, x, y } = instruction;
             switch (op) {
-                case 'cpy':
+                case 'cpy': {
                     this.registers[y as Register] =
                         typeof x === 'number'
                             ? x
                             : this.registers[x as Register];
                     i++;
                     break;
-                case 'inc':
+                }
+                case 'inc': {
                     this.registers[x as Register]++;
                     i++;
                     break;
-                case 'dec':
+                }
+                case 'dec': {
                     this.registers[x as Register]--;
                     i++;
                     break;
-                case 'jnz':
+                }
+                case 'jnz': {
                     if (this.registers[x as Register] === 0) {
                         i++;
                     } else {
@@ -71,6 +74,7 @@ class Computer {
                                 : this.registers[y as Register];
                     }
                     break;
+                }
             }
         }
     }
