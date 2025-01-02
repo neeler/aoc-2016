@@ -1,14 +1,19 @@
 import { Puzzle } from './Puzzle';
 import { splitFilter } from '~/util/parsing';
 import { PriorityQueue } from '~/types/PriorityQueue';
-import { Queue } from '~/types/Queue';
+import { StateMachine } from '~/types/StateMachine';
 
 class GameState {
-    chipsPerFloor: Map<number, Set<string>>;
-    generatorsPerFloor: Map<number, Set<string>>;
-    elements: Set<string>;
-    floor: number;
-    steps: number;
+    readonly chipsPerFloor: Map<number, Set<string>>;
+    readonly generatorsPerFloor: Map<number, Set<string>>;
+    readonly elements: Set<string>;
+    readonly floor: number;
+    readonly steps: number;
+    readonly floorScore: number;
+    readonly score: number;
+    readonly key: string;
+    readonly bestPossibleSteps: number;
+    readonly lowestFloorWithStuff: number;
 
     constructor({
         chipsPerFloor,
@@ -16,100 +21,69 @@ class GameState {
         elements,
         floor,
         steps,
+        lowestFloorWithStuff,
     }: {
         chipsPerFloor: Map<number, Set<string>>;
         generatorsPerFloor: Map<number, Set<string>>;
         elements: Set<string>;
         floor: number;
         steps: number;
+        lowestFloorWithStuff: number;
     }) {
         this.chipsPerFloor = chipsPerFloor;
         this.generatorsPerFloor = generatorsPerFloor;
         this.elements = elements;
         this.floor = floor;
         this.steps = steps;
-    }
+        this.lowestFloorWithStuff = lowestFloorWithStuff;
 
-    clone() {
-        const nextChipsPerFloor = new Map<number, Set<string>>();
-        const nextGeneratorsPerFloor = new Map<number, Set<string>>();
-        for (const [floor, chips] of this.chipsPerFloor.entries()) {
-            nextChipsPerFloor.set(floor, new Set(chips));
+        let bestPossibleSteps = this.steps;
+        let floorScore = 0;
+        for (const [floor, chips] of chipsPerFloor.entries()) {
+            const distanceFromTop = 4 - floor;
+            const distanceFromCurrent = Math.abs(floor - this.floor);
+            bestPossibleSteps +=
+                Math.ceil(chips.size / 2) *
+                (distanceFromTop + distanceFromCurrent);
+            floorScore += chips.size * distanceFromTop;
         }
-        for (const [floor, generators] of this.generatorsPerFloor.entries()) {
-            nextGeneratorsPerFloor.set(floor, new Set(generators));
+        for (const [floor, generators] of generatorsPerFloor.entries()) {
+            const distanceFromTop = 4 - floor;
+            const distanceFromCurrent = Math.abs(floor - this.floor);
+            bestPossibleSteps +=
+                Math.ceil(generators.size / 2) *
+                (distanceFromTop + distanceFromCurrent);
+            floorScore += generators.size * distanceFromTop;
         }
-        return new GameState({
-            chipsPerFloor: nextChipsPerFloor,
-            generatorsPerFloor: nextGeneratorsPerFloor,
-            elements: this.elements,
-            floor: this.floor,
-            steps: this.steps,
-        });
-    }
+        this.bestPossibleSteps = bestPossibleSteps;
+        this.floorScore = floorScore;
+        this.score = steps * floorScore;
 
-    isValid() {
-        for (const [floor, chips] of this.chipsPerFloor.entries()) {
-            const generators = this.generatorsPerFloor.get(floor)!;
-            for (const chip of chips) {
-                if (!generators.has(chip)) {
-                    if (generators.size > 0) {
-                        return false;
+        this.key = `${floor}|${Array.from(
+            {
+                length: 4,
+            },
+            (_, i) => {
+                const chipsOnFloor = this.chipsPerFloor.get(i + 1)!;
+                const generatorsOnFloor = this.generatorsPerFloor.get(i + 1)!;
+                let individualChips = 0;
+                let individualGenerators = 0;
+                let pairs = 0;
+                for (const element of elements) {
+                    if (
+                        chipsOnFloor.has(element) &&
+                        generatorsOnFloor.has(element)
+                    ) {
+                        pairs++;
+                    } else if (chipsOnFloor.has(element)) {
+                        individualChips++;
+                    } else if (generatorsOnFloor.has(element)) {
+                        individualGenerators++;
                     }
                 }
-            }
-        }
-        return true;
-    }
-
-    get floorScore() {
-        let score = 0;
-        for (const [floor, chips] of this.chipsPerFloor.entries()) {
-            score += chips.size * (4 - floor);
-        }
-        for (const [floor, generators] of this.generatorsPerFloor.entries()) {
-            score += generators.size * (4 - floor);
-        }
-        return score;
-    }
-
-    get score() {
-        return this.steps * this.floorScore;
-    }
-
-    isComplete() {
-        return this.floorScore === 0;
-    }
-
-    get floorStrings() {
-        return Array.from({ length: 4 }, (_, i) => {
-            const floor = 4 - i;
-            let elevator = this.floor === floor ? 'E ' : '. ';
-            const components: string[] = [];
-            for (const element of this.elements) {
-                components.push(
-                    this.generatorsPerFloor.get(floor)?.has(element)
-                        ? `${element.slice(0, 1).toUpperCase()}G`
-                        : '. ',
-                );
-                components.push(
-                    this.chipsPerFloor.get(floor)?.has(element)
-                        ? `${element.slice(0, 1).toUpperCase()}M`
-                        : '. ',
-                );
-            }
-            return `F${floor} ${elevator} ${components.join(' ')}`;
-        });
-    }
-
-    get key() {
-        return this.floorStrings.join(':');
-    }
-
-    draw() {
-        console.log(`
-Steps: ${this.steps}
-${this.floorStrings.join('\n')}`);
+                return `${individualChips},${individualGenerators},${pairs}`;
+            },
+        ).join('|')}`;
     }
 
     move({
@@ -135,101 +109,51 @@ ${this.floorStrings.join('\n')}`);
             throw new Error("Can't move more than two items at a time");
         }
 
-        const nextState = this.clone();
-        nextState.floor = nextFloor;
-        nextState.steps++;
-
+        const nextChipsPerFloor = new Map<number, Set<string>>();
+        const nextGeneratorsPerFloor = new Map<number, Set<string>>();
+        for (const [floor, chips] of this.chipsPerFloor.entries()) {
+            nextChipsPerFloor.set(floor, new Set(chips));
+        }
+        for (const [floor, generators] of this.generatorsPerFloor.entries()) {
+            nextGeneratorsPerFloor.set(floor, new Set(generators));
+        }
         for (const chip of chips) {
-            nextState.chipsPerFloor.get(this.floor)!.delete(chip);
-            nextState.chipsPerFloor.get(nextFloor)!.add(chip);
+            nextChipsPerFloor.get(this.floor)!.delete(chip);
+            nextChipsPerFloor.get(nextFloor)!.add(chip);
         }
         for (const generator of generators) {
-            nextState.generatorsPerFloor.get(this.floor)!.delete(generator);
-            nextState.generatorsPerFloor.get(nextFloor)!.add(generator);
+            nextGeneratorsPerFloor.get(this.floor)!.delete(generator);
+            nextGeneratorsPerFloor.get(nextFloor)!.add(generator);
         }
 
-        return nextState;
-    }
-
-    get nextStates() {
-        const states: GameState[] = [];
-
-        const chipsOnFloor = this.chipsPerFloor.get(this.floor)!;
-        const generatorsOnFloor = this.generatorsPerFloor.get(this.floor)!;
-
-        const lowestFloorWithStuff = Math.min(
-            ...Array.from(this.chipsPerFloor.entries())
-                .filter(([, chips]) => chips.size > 0)
-                .map(([floor]) => floor),
-            ...Array.from(this.generatorsPerFloor.entries())
-                .filter(([, generators]) => generators.size > 0)
-                .map(([floor]) => floor),
-        );
-
-        if (lowestFloorWithStuff < this.floor) {
-            // Try going down - only take one thing
-            for (const chip of chipsOnFloor) {
-                states.push(this.move({ chips: [chip], dFloor: -1 }));
-            }
-            for (const generator of generatorsOnFloor) {
-                states.push(this.move({ generators: [generator], dFloor: -1 }));
-            }
-        }
-
-        if (this.floor < 4) {
-            // Try going up - take one or two things
-
-            // Can only combine chips with generators if they're the same element
-            for (const element of Array.from(chipsOnFloor).filter((chip) =>
-                generatorsOnFloor.has(chip),
-            )) {
-                states.push(
-                    this.move({
-                        chips: [element],
-                        generators: [element],
-                        dFloor: 1,
-                    }),
-                );
-            }
-
-            for (const chip of chipsOnFloor) {
-                states.push(this.move({ chips: [chip], dFloor: 1 }));
-            }
-
-            if (chipsOnFloor.size > 1) {
-                const allPossiblePairs = Array.from(chipsOnFloor).reduce<
-                    [string, string][]
-                >((pairs, chip, index, array) => {
-                    for (let i = index + 1; i < array.length; i++) {
-                        pairs.push([chip, array[i]!]);
+        // Reject if the new state is invalid
+        for (const [floor, chips] of nextChipsPerFloor.entries()) {
+            const generators = nextGeneratorsPerFloor.get(floor)!;
+            for (const chip of chips) {
+                if (!generators.has(chip)) {
+                    if (generators.size > 0) {
+                        // Invalid state
+                        return null;
                     }
-                    return pairs;
-                }, []);
-                for (const pair of allPossiblePairs) {
-                    states.push(this.move({ chips: pair, dFloor: 1 }));
-                }
-            }
-
-            for (const generator of generatorsOnFloor) {
-                states.push(this.move({ generators: [generator], dFloor: 1 }));
-            }
-
-            if (generatorsOnFloor.size > 1) {
-                const allPossiblePairs = Array.from(generatorsOnFloor).reduce<
-                    [string, string][]
-                >((pairs, generator, index, array) => {
-                    for (let i = index + 1; i < array.length; i++) {
-                        pairs.push([generator, array[i]!]);
-                    }
-                    return pairs;
-                }, []);
-                for (const pair of allPossiblePairs) {
-                    states.push(this.move({ generators: pair, dFloor: 1 }));
                 }
             }
         }
 
-        return states.filter((state) => state.isValid());
+        return new GameState({
+            chipsPerFloor: nextChipsPerFloor,
+            generatorsPerFloor: nextGeneratorsPerFloor,
+            elements: this.elements,
+            floor: nextFloor,
+            steps: this.steps + 1,
+            lowestFloorWithStuff:
+                nextFloor > this.floor &&
+                (nextChipsPerFloor.get(this.lowestFloorWithStuff)?.size ?? 0) +
+                    (nextGeneratorsPerFloor.get(this.lowestFloorWithStuff)
+                        ?.size ?? 0) ===
+                    0
+                    ? nextFloor
+                    : this.lowestFloorWithStuff,
+        });
     }
 }
 
@@ -294,6 +218,14 @@ export const puzzle11 = new Puzzle({
     },
 });
 
+class StatePriorityQueue extends PriorityQueue<GameState> {
+    constructor() {
+        super({
+            compare: (a, b) => a.score - b.score,
+        });
+    }
+}
+
 function findMinSteps({
     elements,
     chipsPerFloor,
@@ -305,11 +237,115 @@ function findMinSteps({
     generatorsPerFloor: Map<number, Set<string>>;
     usePriorityQueue?: boolean;
 }) {
-    const queue = usePriorityQueue
-        ? new PriorityQueue<GameState>({
-              compare: (a, b) => a.score - b.score,
-          })
-        : new Queue<GameState>();
+    let minSteps = Infinity;
+    const bestStepsForState = new Map<string, number>();
+
+    const machine = new StateMachine<GameState>({
+        queueType: usePriorityQueue ? StatePriorityQueue : undefined,
+        isEnd: (state) => state.floorScore === 0,
+        onEnd: (state) => {
+            minSteps = Math.min(minSteps, state.steps);
+        },
+        nextStates: (state) => {
+            if (state.bestPossibleSteps >= minSteps) {
+                return [];
+            }
+
+            const states: (GameState | null)[] = [];
+
+            const chipsOnFloor = state.chipsPerFloor.get(state.floor)!;
+            const generatorsOnFloor = state.generatorsPerFloor.get(
+                state.floor,
+            )!;
+
+            if (state.lowestFloorWithStuff < state.floor) {
+                // Try going down - only take one thing
+                for (const chip of chipsOnFloor) {
+                    states.push(state.move({ chips: [chip], dFloor: -1 }));
+                }
+                for (const generator of generatorsOnFloor) {
+                    states.push(
+                        state.move({ generators: [generator], dFloor: -1 }),
+                    );
+                }
+            }
+
+            if (state.floor < 4) {
+                // Try going up - take one or two things
+
+                // Can only combine chips with generators if they're the same element
+                for (const element of chipsOnFloor) {
+                    if (generatorsOnFloor.has(element)) {
+                        states.push(
+                            state.move({
+                                chips: [element],
+                                generators: [element],
+                                dFloor: 1,
+                            }),
+                        );
+                    }
+                }
+
+                for (const chip of chipsOnFloor) {
+                    states.push(state.move({ chips: [chip], dFloor: 1 }));
+                }
+
+                if (chipsOnFloor.size > 1) {
+                    const allPossiblePairs = Array.from(chipsOnFloor).reduce<
+                        [string, string][]
+                    >((pairs, chip, index, array) => {
+                        for (let i = index + 1; i < array.length; i++) {
+                            pairs.push([chip, array[i]!]);
+                        }
+                        return pairs;
+                    }, []);
+                    for (const pair of allPossiblePairs) {
+                        states.push(state.move({ chips: pair, dFloor: 1 }));
+                    }
+                }
+
+                for (const generator of generatorsOnFloor) {
+                    states.push(
+                        state.move({ generators: [generator], dFloor: 1 }),
+                    );
+                }
+
+                if (generatorsOnFloor.size > 1) {
+                    const allPossiblePairs = Array.from(
+                        generatorsOnFloor,
+                    ).reduce<[string, string][]>(
+                        (pairs, generator, index, array) => {
+                            for (let i = index + 1; i < array.length; i++) {
+                                pairs.push([generator, array[i]!]);
+                            }
+                            return pairs;
+                        },
+                        [],
+                    );
+                    for (const pair of allPossiblePairs) {
+                        states.push(
+                            state.move({ generators: pair, dFloor: 1 }),
+                        );
+                    }
+                }
+            }
+
+            return states.reduce<GameState[]>((nextStates, nextState) => {
+                if (!nextState) {
+                    return nextStates;
+                }
+
+                const bestSeenSteps =
+                    bestStepsForState.get(nextState.key) ?? Infinity;
+                if (nextState.steps < bestSeenSteps) {
+                    bestStepsForState.set(nextState.key, nextState.steps);
+                    nextStates.push(nextState);
+                }
+
+                return nextStates;
+            }, []);
+        },
+    });
 
     const initialState = new GameState({
         chipsPerFloor,
@@ -317,32 +353,12 @@ function findMinSteps({
         elements,
         floor: 1,
         steps: 0,
+        lowestFloorWithStuff: 1,
     });
-    queue.add(initialState);
-
-    const bestStepsForState = new Map<string, number>();
     bestStepsForState.set(initialState.key, 0);
-
-    let minSteps = Infinity;
-    queue.process((state) => {
-        if (state.isComplete()) {
-            minSteps = Math.min(minSteps, state.steps);
-            return;
-        }
-
-        if (state.steps >= minSteps - 1) {
-            return;
-        }
-
-        const nextStates = state.nextStates;
-        for (const nextState of nextStates) {
-            const bestSeenSteps =
-                bestStepsForState.get(nextState.key) ?? Infinity;
-            if (nextState.steps < bestSeenSteps) {
-                queue.add(nextState);
-                bestStepsForState.set(nextState.key, nextState.steps);
-            }
-        }
+    machine.run({
+        start: initialState,
     });
+
     return minSteps;
 }
