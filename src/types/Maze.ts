@@ -6,6 +6,7 @@ export class MazeNode extends GridNode {
     char?: string;
     obstacle: boolean;
     bestScore = Infinity;
+    isBestPath = false;
 
     constructor({
         row,
@@ -36,6 +37,9 @@ export class MazeNode extends GridNode {
 }
 
 export class Maze extends Grid<MazeNode> {
+    hasScores = false;
+    hasBestPath = false;
+
     constructor({ width, height }: { width: number; height: number }) {
         super({
             maxX: width - 1,
@@ -107,6 +111,10 @@ export class Maze extends Grid<MazeNode> {
         end: GridCoordinate;
         resetAfter?: boolean;
     }) {
+        if (this.hasScores || this.hasBestPath) {
+            this.resetScores();
+        }
+
         const start = this.get(startCoord)!;
         const end = this.get(endCoord)!;
 
@@ -137,9 +145,50 @@ export class Maze extends Grid<MazeNode> {
 
         if (resetAfter) {
             this.resetScores();
+        } else {
+            this.hasScores = true;
         }
 
         return score;
+    }
+
+    findBestPath({
+        start: startCoord,
+        end: endCoord,
+    }: {
+        start: GridCoordinate;
+        end: GridCoordinate;
+    }) {
+        this.score({
+            start: startCoord,
+            end: endCoord,
+            resetAfter: false,
+        });
+        const queue = new Queue<MazeNode>();
+        queue.add(this.get(endCoord)!);
+        queue.process((node) => {
+            if (node === this.get(startCoord)) {
+                queue.reset();
+                return;
+            }
+            const neighbors = this.getOrthogonalNeighborsOf(node.row, node.col);
+            const bestNeighbor = this.getOrthogonalNeighborsOf(
+                node.row,
+                node.col,
+            ).reduce((best, neighbor) => {
+                if (best && neighbor.bestScore < best.bestScore) {
+                    return neighbor;
+                }
+                return best;
+            }, neighbors[0]);
+            if (bestNeighbor) {
+                bestNeighbor.isBestPath = true;
+                queue.add(bestNeighbor);
+            } else {
+                queue.reset();
+            }
+        });
+        this.hasBestPath = true;
     }
 
     resetScores() {
@@ -147,6 +196,34 @@ export class Maze extends Grid<MazeNode> {
             if (node) {
                 node.bestScore = Infinity;
             }
+        });
+        this.hasBestPath = false;
+    }
+
+    drawWithScores() {
+        let longestScore = 0;
+        this.forEach((node) => {
+            if (node && node.bestScore !== Infinity) {
+                const score = node.bestScore.toString();
+                if (score.length > longestScore) {
+                    longestScore = score.length;
+                }
+            }
+        });
+        const padding = longestScore + 1;
+        this.draw((node) => {
+            if (!node) {
+                return ''.padEnd(padding, ' ');
+            }
+            if (node.bestScore === Infinity) {
+                return '#'.repeat(longestScore).padEnd(padding, ' ');
+            }
+            return this.hasBestPath
+                ? (node.isBestPath
+                      ? node.bestScore.toString()
+                      : '#'.repeat(longestScore)
+                  ).padEnd(padding, ' ')
+                : node.bestScore.toString().padEnd(padding, ' ');
         });
     }
 }

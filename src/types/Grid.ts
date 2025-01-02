@@ -54,7 +54,7 @@ export class Grid<T> {
     readonly height: number;
     private minXUpdated: number | undefined;
     private blank: string;
-    private drawFn?: (data: T | undefined, row: number, col: number) => string;
+    readonly drawFn?: (data: T | undefined, row: number, col: number) => string;
     private defaultValue?: (row: number, col: number) => T;
 
     constructor({
@@ -460,12 +460,16 @@ export class Grid<T> {
 ${this.toString(drawFn)}
 `);
     }
+
+    static getCoordKey({ row, col }: GridCoordinate) {
+        return `${row},${col}`;
+    }
 }
 
 export class GridCoordinateSet extends CustomSet<GridCoordinate> {
     constructor() {
         super({
-            getKey: (point) => `${point.row},${point.col}`,
+            getKey: (point) => Grid.getCoordKey(point),
         });
     }
 }

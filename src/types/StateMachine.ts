@@ -3,14 +3,24 @@ import { ProcessStruct } from '~/types/ProcessStruct';
 
 export interface StateMachineConfig<TData extends object> {
     isEnd: (state: TData) => boolean;
-    onEnd: (state: TData) => void;
+    onEnd: (
+        state: TData,
+        options: {
+            stop: () => void;
+        },
+    ) => void;
     nextStates: (state: TData) => TData[];
     queueType?: new () => ProcessStruct<TData>;
 }
 
 export class StateMachine<TData extends object> {
     readonly isEnd: (state: TData) => boolean;
-    readonly onEnd: (state: TData) => void;
+    readonly onEnd: (
+        state: TData,
+        options: {
+            stop: () => void;
+        },
+    ) => void;
     readonly nextStates: (state: TData) => TData[];
     readonly QueueClass: {
         new (): ProcessStruct<TData>;
@@ -34,7 +44,9 @@ export class StateMachine<TData extends object> {
 
         queue.process((state) => {
             if (this.isEnd(state)) {
-                this.onEnd(state);
+                this.onEnd(state, {
+                    stop: () => queue.reset(),
+                });
                 return;
             }
 
