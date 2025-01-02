@@ -33,38 +33,46 @@ export const puzzle9 = new Puzzle({
         return decompressed.length;
     },
     part2: (data) => {
-        let totalChars = 0;
-        let marker = findMarker(data);
-        let decompressed = data;
+        const chars = data.split('');
+        const weights = Array<number>(chars.length).fill(1);
 
-        while (marker) {
-            const markerIndex = marker?.index ?? 0;
-            totalChars += markerIndex;
-            if (markerIndex > 0) {
-                decompressed = decompressed.slice(markerIndex);
-            }
+        let sum = 0;
+        let i = 0;
 
-            const [fullMatch, nChars, repCount] = marker as [
-                string,
-                string,
-                string,
-            ];
-            const start = fullMatch.length;
-            const end = start + parseInt(nChars, 10);
-            const toRepeat = decompressed.slice(start, end);
-            const nRepeats = parseInt(repCount, 10);
-            if (findMarker(toRepeat)) {
-                const decompressedSegment = toRepeat.repeat(nRepeats);
-                decompressed = decompressedSegment + decompressed.slice(end);
+        while (i < chars.length) {
+            const char = chars[i]!;
+            if (char === '(') {
+                const match = findMarker(data.slice(i));
+                if (match) {
+                    const [fullMatch, nChars, repCount] = match as [
+                        string,
+                        string,
+                        string,
+                    ];
+                    const startOfStringToRepeat = i + fullMatch.length;
+                    const endOfStringToRepeat =
+                        startOfStringToRepeat + Number(nChars);
+                    const nRepeats = Number(repCount);
+
+                    for (
+                        let j = startOfStringToRepeat;
+                        j < endOfStringToRepeat;
+                        j++
+                    ) {
+                        weights[j] = nRepeats * weights[j]!;
+                    }
+                    i = startOfStringToRepeat;
+                } else {
+                    sum += weights[i]!;
+                    i++;
+                }
             } else {
-                totalChars += toRepeat.length * nRepeats;
-                decompressed = decompressed.slice(end);
+                sum += weights[i]!;
+                i++;
             }
-
-            marker = findMarker(decompressed);
         }
 
-        return totalChars + decompressed.length;
+        return sum;
     },
 });
 
