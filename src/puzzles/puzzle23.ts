@@ -158,60 +158,77 @@ export const puzzle23 = new Puzzle({
 
 const noop = new Instruction('jnz 0 0');
 
+function findAddProduct(instructions: Instruction[], i: number) {
+    const instruction = instructions[i]!;
+    if (instruction.op !== 'cpy') {
+        return null;
+    }
+
+    const input1 = instruction.x;
+    const inputRegister = instruction.y as Register;
+    const nextTwoInstructions = instructions.slice(i + 1, i + 3);
+    const incInstruction = nextTwoInstructions.find(
+        (instr) => instr.op === 'inc',
+    );
+    const decInstructionInner = nextTwoInstructions.find(
+        (instr) => instr.op === 'dec' && instr.x === inputRegister,
+    );
+    const thirdInstruction = instructions[i + 3];
+    if (
+        !(
+            incInstruction &&
+            decInstructionInner &&
+            thirdInstruction?.op === 'jnz' &&
+            thirdInstruction.x === inputRegister &&
+            thirdInstruction.y === -2
+        )
+    ) {
+        return null;
+    }
+
+    const targetRegister = incInstruction.x as Register;
+    const decInstructionOuter = instructions[i + 4];
+    const lastInstruction = instructions[i + 5];
+    if (
+        !(
+            decInstructionOuter &&
+            decInstructionOuter.op === 'dec' &&
+            lastInstruction &&
+            lastInstruction.op === 'jnz' &&
+            decInstructionOuter.x === lastInstruction.x &&
+            lastInstruction.y === -5
+        )
+    ) {
+        return null;
+    }
+
+    const input2 = decInstructionOuter.x;
+
+    const addProductInstruction = new Instruction(
+        `addProduct ${input1} ${input2} ${targetRegister}`,
+    );
+    const noopInstructions = [noop, noop, noop, noop, noop];
+
+    return {
+        addProductInstruction,
+        noopInstructions,
+    };
+}
+
 function optimize(instructions: Instruction[]): Instruction[] {
     const optimized: Instruction[] = [];
     let i = 0;
     while (i < instructions.length) {
         const instruction = instructions[i]!;
-        if (instruction.op === 'cpy') {
-            const input1 = instruction.x;
-            const inputRegister = instruction.y as Register;
-            const nextTwoInstructions = instructions.slice(i + 1, i + 3);
-            const incInstruction = nextTwoInstructions.find(
-                (instr) => instr.op === 'inc',
-            );
-            const decInstructionInner = nextTwoInstructions.find(
-                (instr) => instr.op === 'dec' && instr.x === inputRegister,
-            );
-            const thirdInstruction = instructions[i + 3];
-            if (
-                incInstruction &&
-                decInstructionInner &&
-                thirdInstruction?.op === 'jnz' &&
-                thirdInstruction.x === inputRegister &&
-                thirdInstruction.y === -2
-            ) {
-                const targetRegister = incInstruction.x as Register;
-                const decInstructionOuter = instructions[i + 4];
-                const lastInstruction = instructions[i + 5];
-                if (
-                    decInstructionOuter &&
-                    decInstructionOuter.op === 'dec' &&
-                    lastInstruction &&
-                    lastInstruction.op === 'jnz' &&
-                    decInstructionOuter.x === lastInstruction.x &&
-                    lastInstruction.y === -5
-                ) {
-                    const input2 = decInstructionOuter.x;
-                    optimized.push(
-                        new Instruction(
-                            `addProduct ${input1} ${input2} ${targetRegister}`,
-                        ),
-                    );
-                    optimized.push(noop);
-                    optimized.push(noop);
-                    optimized.push(noop);
-                    optimized.push(noop);
-                    optimized.push(noop);
-                    i += 6;
-                } else {
-                    optimized.push(instruction);
-                    i++;
-                }
-            } else {
-                optimized.push(instruction);
-                i++;
-            }
+
+        const addProduct = findAddProduct(instructions, i);
+        if (addProduct) {
+            const newInstructions = [
+                addProduct.addProductInstruction,
+                ...addProduct.noopInstructions,
+            ];
+            optimized.push(...newInstructions);
+            i += newInstructions.length;
         } else {
             optimized.push(instruction);
             i++;
