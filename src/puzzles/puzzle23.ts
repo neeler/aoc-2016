@@ -1,17 +1,20 @@
 import { Puzzle } from './Puzzle';
 import { splitFilter } from '~/util/parsing';
-import { range } from '~/util/range';
 
 type Register = 'a' | 'b' | 'c' | 'd';
-type Operation = 'cpy' | 'inc' | 'dec' | 'jnz' | 'tgl';
+type Operation = 'cpy' | 'inc' | 'dec' | 'jnz' | 'tgl' | 'addProduct';
 
 class Instruction {
+    string: string;
     op: Operation;
     x: string | number;
     y: string | number | undefined;
+    z: string | number | undefined;
 
     constructor(str: string) {
-        const [op, x, y] = str.split(' ');
+        this.string = str;
+
+        const [op, x, y, z] = str.split(' ');
 
         this.op = op as Operation;
 
@@ -25,10 +28,21 @@ class Instruction {
             const yNum = Number.parseInt(y);
             this.y = Number.isNaN(yNum) ? y : yNum;
         }
+
+        if (z !== undefined) {
+            if (op !== 'addProduct') {
+                throw new Error('z is only allowed for addProduct');
+            }
+            const zNum = Number.parseInt(z);
+            if (!Number.isNaN(zNum)) {
+                throw new Error('z must be a register');
+            }
+            this.z = z;
+        }
     }
 
     toString() {
-        return `${this.op} ${this.x} ${this.y ?? ''}`.trim();
+        return this.string;
     }
 }
 
@@ -42,64 +56,24 @@ class Computer {
 
     constructor(private instructions: Instruction[]) {}
 
+    getValue(x: string | number) {
+        return typeof x === 'number' ? x : this.registers[x as Register];
+    }
+
     run() {
         let i = 0;
         let iterations = 0;
         while (i < this.instructions.length) {
-            if (
-                range(i, i + 6)
-                    .map((i) => this.instructions[i])
-                    .join('\n') ===
-                [
-                    'cpy b c',
-                    'inc a',
-                    'dec c',
-                    'jnz c -2',
-                    'dec d',
-                    'jnz d -5',
-                ].join('\n')
-            ) {
-                this.registers.a = this.registers.b * this.registers.d;
-                this.registers.c = 0;
-                this.registers.d = 0;
-                i += 6;
-                continue;
-            }
-            if (
-                range(i, i + 3)
-                    .map((i) => this.instructions[i])
-                    .join('\n') === ['dec d', 'inc c', 'jnz d -2'].join('\n')
-            ) {
-                this.registers.c += this.registers.d;
-                this.registers.d = 0;
-                i += 3;
-                continue;
-            }
-            if (
-                range(i, i + 3)
-                    .map((i) => this.instructions[i])
-                    .join('\n') === ['inc a', 'dec d', 'jnz d -2'].join('\n')
-            ) {
-                this.registers.a += this.registers.d;
-                this.registers.d = 0;
-                i += 3;
-                continue;
-            }
-
             const instruction = this.instructions[i];
             if (!instruction) {
                 break;
             }
             const { op, x, y } = instruction;
+
             switch (op) {
                 case 'cpy': {
                     if (y && typeof y === 'string') {
-                        this.registers[y as Register] =
-                            typeof x === 'number'
-                                ? x
-                                : this.registers[x as Register];
-                    } else {
-                        console.log('skipping cpy', instruction.toString());
+                        this.registers[y as Register] = this.getValue(x);
                     }
                     i++;
                     break;
@@ -108,8 +82,6 @@ class Computer {
                     if (typeof x === 'string') {
                         this.registers[x as Register]++;
                         i++;
-                    } else {
-                        console.log('skipping inc', instruction.toString());
                     }
                     break;
                 }
@@ -117,34 +89,21 @@ class Computer {
                     if (typeof x === 'string') {
                         this.registers[x as Register]--;
                         i++;
-                    } else {
-                        console.log('skipping dec', instruction.toString());
                     }
                     break;
                 }
                 case 'jnz': {
-                    const xVal =
-                        typeof x === 'number'
-                            ? x
-                            : this.registers[x as Register];
-                    if (xVal === 0) {
+                    if (this.getValue(x) === 0) {
                         i++;
                     } else {
-                        i +=
-                            typeof y === 'number'
-                                ? y
-                                : this.registers[y as Register];
+                        i += this.getValue(y!);
                     }
                     break;
                 }
                 case 'tgl': {
                     const targetInstruction =
-                        this.instructions[
-                            i +
-                                (typeof x === 'number'
-                                    ? x
-                                    : this.registers[x as Register])
-                        ];
+                        this.instructions[i + this.getValue(x)];
+
                     switch (targetInstruction?.op) {
                         case 'inc':
                             targetInstruction.op = 'dec';
@@ -163,6 +122,12 @@ class Computer {
                     i++;
                     break;
                 }
+                case 'addProduct': {
+                    this.registers[instruction.z as Register] +=
+                        this.getValue(x) * this.getValue(y!);
+                    i++;
+                    break;
+                }
             }
             iterations++;
         }
@@ -172,7 +137,9 @@ class Computer {
 export const puzzle23 = new Puzzle({
     day: 23,
     parseInput: (fileData) => {
-        return splitFilter(fileData).map((line) => new Instruction(line));
+        return optimize(
+            splitFilter(fileData).map((line) => new Instruction(line)),
+        );
     },
     part1: (instructions) => {
         const computer = new Computer(instructions);
@@ -180,6 +147,7 @@ export const puzzle23 = new Puzzle({
         computer.run();
         return computer.registers.a;
     },
+    // skipPart2: true,
     part2: (instructions) => {
         const computer = new Computer(instructions);
         computer.registers.a = 12;
@@ -187,3 +155,67 @@ export const puzzle23 = new Puzzle({
         return computer.registers.a;
     },
 });
+
+const noop = new Instruction('jnz 0 0');
+
+function optimize(instructions: Instruction[]): Instruction[] {
+    const optimized: Instruction[] = [];
+    let i = 0;
+    while (i < instructions.length) {
+        const instruction = instructions[i]!;
+        if (instruction.op === 'cpy') {
+            const input1 = instruction.x;
+            const inputRegister = instruction.y as Register;
+            const nextTwoInstructions = instructions.slice(i + 1, i + 3);
+            const incInstruction = nextTwoInstructions.find(
+                (instr) => instr.op === 'inc',
+            );
+            const decInstructionInner = nextTwoInstructions.find(
+                (instr) => instr.op === 'dec' && instr.x === inputRegister,
+            );
+            const thirdInstruction = instructions[i + 3];
+            if (
+                incInstruction &&
+                decInstructionInner &&
+                thirdInstruction?.op === 'jnz' &&
+                thirdInstruction.x === inputRegister &&
+                thirdInstruction.y === -2
+            ) {
+                const targetRegister = incInstruction.x as Register;
+                const decInstructionOuter = instructions[i + 4];
+                const lastInstruction = instructions[i + 5];
+                if (
+                    decInstructionOuter &&
+                    decInstructionOuter.op === 'dec' &&
+                    lastInstruction &&
+                    lastInstruction.op === 'jnz' &&
+                    decInstructionOuter.x === lastInstruction.x &&
+                    lastInstruction.y === -5
+                ) {
+                    const input2 = decInstructionOuter.x;
+                    optimized.push(
+                        new Instruction(
+                            `addProduct ${input1} ${input2} ${targetRegister}`,
+                        ),
+                    );
+                    optimized.push(noop);
+                    optimized.push(noop);
+                    optimized.push(noop);
+                    optimized.push(noop);
+                    optimized.push(noop);
+                    i += 6;
+                } else {
+                    optimized.push(instruction);
+                    i++;
+                }
+            } else {
+                optimized.push(instruction);
+                i++;
+            }
+        } else {
+            optimized.push(instruction);
+            i++;
+        }
+    }
+    return optimized;
+}
