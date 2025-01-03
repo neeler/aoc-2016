@@ -10,7 +10,6 @@ class Instruction {
     x: string | number;
     y: string | number | undefined;
     z: string | number | undefined;
-    clearRegistersAfter: string[] = [];
 
     constructor(
         str: string,
@@ -46,15 +45,6 @@ class Instruction {
                 throw new Error('z must be a register');
             }
             this.z = z;
-        }
-
-        if (clearRegistersAfter?.length) {
-            if (op !== 'addProduct') {
-                throw new Error(
-                    'clearRegistersAfter is only allowed for addProduct',
-                );
-            }
-            this.clearRegistersAfter = clearRegistersAfter;
         }
     }
 
@@ -142,9 +132,6 @@ class Computer {
                 case 'addProduct': {
                     this.registers[instruction.z as Register] +=
                         this.getValue(x) * this.getValue(y!);
-                    instruction.clearRegistersAfter.forEach((register) => {
-                        this.registers[register as Register] = 0;
-                    });
                     i++;
                     break;
                 }
@@ -227,18 +214,14 @@ function findAddProduct(instructions: Instruction[], i: number) {
         return null;
     }
 
-    const addProductInstruction = new Instruction(
-        `addProduct ${input1} ${input2} ${targetRegister}`,
-        {
-            clearRegistersAfter: [inputRegister, input2],
-        },
-    );
-    const noopInstructions = [noop, noop, noop, noop, noop];
-
-    return {
-        addProductInstruction,
-        noopInstructions,
-    };
+    return [
+        new Instruction(`addProduct ${input1} ${input2} ${targetRegister}`),
+        new Instruction(`cpy 0 ${inputRegister}`),
+        new Instruction(`cpy 0 ${input2}`),
+        noop,
+        noop,
+        noop,
+    ];
 }
 
 function optimize(instructions: Instruction[]): Instruction[] {
@@ -247,18 +230,15 @@ function optimize(instructions: Instruction[]): Instruction[] {
     while (i < instructions.length) {
         const instruction = instructions[i]!;
 
-        const addProduct = findAddProduct(instructions, i);
-        if (addProduct) {
-            const newInstructions = [
-                addProduct.addProductInstruction,
-                ...addProduct.noopInstructions,
-            ];
-            optimized.push(...newInstructions);
-            i += newInstructions.length;
-        } else {
-            optimized.push(instruction);
-            i++;
+        const addProductInstructions = findAddProduct(instructions, i);
+        if (addProductInstructions) {
+            optimized.push(...addProductInstructions);
+            i += addProductInstructions.length;
+            continue;
         }
+
+        optimized.push(instruction);
+        i++;
     }
     return optimized;
 }
