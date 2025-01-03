@@ -11,14 +11,7 @@ class Instruction {
     y: string | number | undefined;
     z: string | number | undefined;
 
-    constructor(
-        str: string,
-        {
-            clearRegistersAfter,
-        }: {
-            clearRegistersAfter?: string[];
-        } = {},
-    ) {
+    constructor(str: string) {
         this.string = str;
 
         const [op, x, y, z] = str.split(' ');
