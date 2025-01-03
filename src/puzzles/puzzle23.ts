@@ -10,8 +10,16 @@ class Instruction {
     x: string | number;
     y: string | number | undefined;
     z: string | number | undefined;
+    clearRegistersAfter: string[] = [];
 
-    constructor(str: string) {
+    constructor(
+        str: string,
+        {
+            clearRegistersAfter,
+        }: {
+            clearRegistersAfter?: string[];
+        } = {},
+    ) {
         this.string = str;
 
         const [op, x, y, z] = str.split(' ');
@@ -38,6 +46,15 @@ class Instruction {
                 throw new Error('z must be a register');
             }
             this.z = z;
+        }
+
+        if (clearRegistersAfter?.length) {
+            if (op !== 'addProduct') {
+                throw new Error(
+                    'clearRegistersAfter is only allowed for addProduct',
+                );
+            }
+            this.clearRegistersAfter = clearRegistersAfter;
         }
     }
 
@@ -125,6 +142,9 @@ class Computer {
                 case 'addProduct': {
                     this.registers[instruction.z as Register] +=
                         this.getValue(x) * this.getValue(y!);
+                    instruction.clearRegistersAfter.forEach((register) => {
+                        this.registers[register as Register] = 0;
+                    });
                     i++;
                     break;
                 }
@@ -147,7 +167,6 @@ export const puzzle23 = new Puzzle({
         computer.run();
         return computer.registers.a;
     },
-    // skipPart2: true,
     part2: (instructions) => {
         const computer = new Computer(instructions);
         computer.registers.a = 12;
@@ -204,8 +223,15 @@ function findAddProduct(instructions: Instruction[], i: number) {
 
     const input2 = decInstructionOuter.x;
 
+    if (typeof input2 !== 'string') {
+        return null;
+    }
+
     const addProductInstruction = new Instruction(
         `addProduct ${input1} ${input2} ${targetRegister}`,
+        {
+            clearRegistersAfter: [inputRegister, input2],
+        },
     );
     const noopInstructions = [noop, noop, noop, noop, noop];
 
