@@ -2,7 +2,7 @@
 
 ### Completed!
 
-All puzzles together run in ~53s cumulatively on my M2 MacBook Air. 🎉
+All puzzles together run in ~50s cumulatively on my M2 MacBook Air. 🎉
 The slow ones are:
 - #5: p1 ~6s, p2 ~16s. (brute force md5 hashing)
 - #14: p2 ~25s. (brute force md5 hashing)
